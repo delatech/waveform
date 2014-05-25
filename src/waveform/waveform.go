@@ -25,21 +25,48 @@ const (
 func Generate(sourcePath string) {
 	filename := filepath.Base(sourcePath)
 	tempfilename := fmt.Sprintf("%s/%s.raw", TEMP_FILE_DIR, filename)
-	//GenerateRawFile(sourcePath, tempfilename)
+	GenerateRawFile(sourcePath, tempfilename)
+
+	originalFile, err := os.Open(sourcePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	originalFileInfo, err := originalFile.Stat()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("original file size: %d\n", originalFileInfo.Size())
 
 	rawFile, err := os.Open(tempfilename)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	maximumValues, minimumValues := extractMinMaxValues(sourcePath, rawFile)
+	fmt.Println(len(maximumValues))
+	fmt.Println(len(minimumValues))
+}
+
+func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32) {
 	rawfileInfo, err := rawFile.Stat()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	segmentSize := int(float64(rawfileInfo.Size()) / GetWidth(sourcePath))
+	fmt.Printf("raw file size: %d\n", rawfileInfo.Size())
+
+	width := GetWidth(sourcePath)
+	segmentSize := int(float64(rawfileInfo.Size()) / width)
+	maximumValues := make([]int32, int(width))
+	minimumValues := make([]int32, int(width))
+
 	data := make([]byte, segmentSize*NUMBER_OF_BYTES)
-	for {
+	fmt.Printf("width: %d\n", int(width))
+	fmt.Printf("segmentSize: %d\n", segmentSize)
+	fmt.Printf("raw file size: %d\n", rawfileInfo.Size())
+	for position := 0; position < int(width); position++ {
 		max := MIN_AUDIO_VALUE
 		min := MAX_AUDIO_VALUE
 
@@ -59,16 +86,12 @@ func Generate(sourcePath string) {
 		data = data[:n]
 		word := make([]byte, NUMBER_OF_BYTES*2)
 
-		fmt.Println(binary.LittleEndian)
-
 		for index, b := range data {
 			word[index%4] = b
 			if (index+1)%NUMBER_OF_BYTES == 0 {
 				var value int32
 				buf := bytes.NewReader(word)
 				err := binary.Read(buf, binary.LittleEndian, &value)
-
-				fmt.Println(word, value)
 
 				if err != nil {
 					log.Fatal(err)
@@ -84,9 +107,10 @@ func Generate(sourcePath string) {
 			}
 		}
 
-		fmt.Printf("min : %d / max: %d\n", min, max)
-		break
+		minimumValues[position] = min
+		maximumValues[position] = max
 	}
+	return minimumValues, maximumValues
 }
 
 func GenerateRawFile(sourcePath string, tempFilePath string) {
