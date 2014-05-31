@@ -44,9 +44,11 @@ func Generate(sourcePath string) {
 		log.Fatal(err)
 	}
 
-	maximumValues, minimumValues := extractMinMaxValues(sourcePath, rawFile)
-	fmt.Println(len(maximumValues))
-	fmt.Println(len(minimumValues))
+	minimumValues, maximumValues := extractMinMaxValues(sourcePath, rawFile)
+	fmt.Println(maximumValues)
+	fmt.Println(minimumValues)
+	percents := convertToPercentage(minimumValues, maximumValues)
+	fmt.Println(percents)
 }
 
 func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32) {
@@ -111,6 +113,26 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32)
 		maximumValues[position] = max
 	}
 	return minimumValues, maximumValues
+}
+
+func convertToPercentage(minimumValues []int32, maximumValues []int32) []float64 {
+	width := len(maximumValues)
+	heights_in_int32 := make([]int32, width)
+	heights := make([]float64, width)
+	highestHeight := maximumValues[0] - minimumValues[0]
+	heights_in_int32[0] = 0
+	for i := 1; i < width; i++ {
+		heights_in_int32[i] = maximumValues[i] - minimumValues[i]
+		if highestHeight < heights_in_int32[i] {
+			highestHeight = heights_in_int32[i]
+		}
+	}
+
+	highestHeight_in_float64 := float64(highestHeight)
+	for i := 0; i < width; i++ {
+		heights[i] = float64(heights_in_int32[i]) / highestHeight_in_float64
+	}
+	return heights
 }
 
 func GenerateRawFile(sourcePath string, tempFilePath string) {
