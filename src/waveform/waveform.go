@@ -3,6 +3,7 @@ package waveform
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -22,22 +23,10 @@ const (
 	NUMBER_OF_BYTES  int     = 4
 )
 
-func Generate(sourcePath string) {
+func Generate(sourcePath string, jsonPath string) {
 	filename := filepath.Base(sourcePath)
 	tempfilename := fmt.Sprintf("%s/%s.raw", TEMP_FILE_DIR, filename)
 	GenerateRawFile(sourcePath, tempfilename)
-
-	originalFile, err := os.Open(sourcePath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	originalFileInfo, err := originalFile.Stat()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("original file size: %d\n", originalFileInfo.Size())
 
 	rawFile, err := os.Open(tempfilename)
 	if err != nil {
@@ -45,10 +34,24 @@ func Generate(sourcePath string) {
 	}
 
 	minimumValues, maximumValues := extractMinMaxValues(sourcePath, rawFile)
-	fmt.Println(maximumValues)
-	fmt.Println(minimumValues)
 	percents := convertToPercentage(minimumValues, maximumValues)
-	fmt.Println(percents)
+
+	type Waves struct{ Waves []float64 }
+	waves := Waves{Waves: percents}
+
+	result, err := json.Marshal(waves)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	jsonFile, err := os.Create(jsonPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if _, err := jsonFile.Write(result); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32) {
@@ -57,17 +60,12 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32)
 		log.Fatal(err)
 	}
 
-	fmt.Printf("raw file size: %d\n", rawfileInfo.Size())
-
 	width := GetWidth(sourcePath)
 	segmentSize := int(float64(rawfileInfo.Size()) / width)
 	maximumValues := make([]int32, int(width))
 	minimumValues := make([]int32, int(width))
 
-	data := make([]byte, segmentSize*NUMBER_OF_BYTES)
-	fmt.Printf("width: %d\n", int(width))
-	fmt.Printf("segmentSize: %d\n", segmentSize)
-	fmt.Printf("raw file size: %d\n", rawfileInfo.Size())
+	data := make([]byte, segmentSize)
 	for position := 0; position < int(width); position++ {
 		max := MIN_AUDIO_VALUE
 		min := MAX_AUDIO_VALUE
@@ -81,15 +79,11 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32)
 			log.Fatal(err)
 		}
 
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		data = data[:n]
 		word := make([]byte, NUMBER_OF_BYTES*2)
 
 		for index, b := range data {
-			word[index%4] = b
+			word[index%NUMBER_OF_BYTES] = b
 			if (index+1)%NUMBER_OF_BYTES == 0 {
 				var value int32
 				buf := bytes.NewReader(word)
@@ -106,6 +100,10 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32)
 				if value > max {
 					max = value
 				}
+
+				for i := 0; i < NUMBER_OF_BYTES*2; i++ {
+					word[i] = 0
+				}
 			}
 		}
 
@@ -117,20 +115,20 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32)
 
 func convertToPercentage(minimumValues []int32, maximumValues []int32) []float64 {
 	width := len(maximumValues)
-	heights_in_int32 := make([]int32, width)
+	heightsInInt64 := make([]int64, width)
 	heights := make([]float64, width)
-	highestHeight := maximumValues[0] - minimumValues[0]
-	heights_in_int32[0] = 0
+	highestHeight := int64(maximumValues[0]) - int64(minimumValues[0])
+	heightsInInt64[0] = 0
 	for i := 1; i < width; i++ {
-		heights_in_int32[i] = maximumValues[i] - minimumValues[i]
-		if highestHeight < heights_in_int32[i] {
-			highestHeight = heights_in_int32[i]
+		heightsInInt64[i] = int64(maximumValues[i]) - int64(minimumValues[i])
+		if highestHeight < heightsInInt64[i] {
+			highestHeight = heightsInInt64[i]
 		}
 	}
 
-	highestHeight_in_float64 := float64(highestHeight)
+	highestHeightInFloat64 := float64(highestHeight)
 	for i := 0; i < width; i++ {
-		heights[i] = float64(heights_in_int32[i]) / highestHeight_in_float64
+		heights[i] = float64(heightsInInt64[i]) / highestHeightInFloat64
 	}
 	return heights
 }
