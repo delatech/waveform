@@ -8,3 +8,4 @@ fi
 
 command="ffmpeg -i $1 -y -f mp3 -ab 192000 -vn $1.mp3"
 echo $command
+eval $command
