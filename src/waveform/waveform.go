@@ -18,8 +18,8 @@ import (
 const (
 	PIXEL_PER_SECOND float64 = 1000 / 30.0
 	TEMP_FILE_DIR    string  = "tmp"
-	MAX_AUDIO_VALUE  int32   = 65536
-	MIN_AUDIO_VALUE  int32   = -65536
+	MAX_AUDIO_VALUE  int64   = 65536
+	MIN_AUDIO_VALUE  int64   = -65536
 	NUMBER_OF_BYTES  int     = 4
 )
 
@@ -36,10 +36,7 @@ func Generate(sourcePath string, jsonPath string) {
 	minimumValues, maximumValues := extractMinMaxValues(sourcePath, rawFile)
 	percents := convertToPercentage(minimumValues, maximumValues)
 
-	type Waves struct{ Waves []float64 }
-	waves := Waves{Waves: percents}
-
-	result, err := json.Marshal(waves)
+	result, err := json.Marshal(percents)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -54,23 +51,23 @@ func Generate(sourcePath string, jsonPath string) {
 	}
 }
 
-func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32) {
+func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int64, []int64) {
 	rawfileInfo, err := rawFile.Stat()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	width := GetWidth(sourcePath)
-	segmentSize := int(float64(rawfileInfo.Size()) / width)
-	maximumValues := make([]int32, int(width))
-	minimumValues := make([]int32, int(width))
+	segmentSize := int(float64(rawfileInfo.Size())/width+0.5) / NUMBER_OF_BYTES
+	maximumValues := make([]int64, int(width))
+	minimumValues := make([]int64, int(width))
+	data := make([]byte, segmentSize*NUMBER_OF_BYTES)
 
-	data := make([]byte, segmentSize)
+	fmt.Printf("segment size: %d\n", segmentSize)
 	for position := 0; position < int(width); position++ {
 		max := MIN_AUDIO_VALUE
 		min := MAX_AUDIO_VALUE
 
-		data = data[:cap(data)]
 		n, err := rawFile.Read(data)
 		if err != nil {
 			if err == io.EOF {
@@ -79,30 +76,34 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32)
 			log.Fatal(err)
 		}
 
-		data = data[:n]
 		word := make([]byte, NUMBER_OF_BYTES*2)
-
-		for index, b := range data {
-			word[index%NUMBER_OF_BYTES] = b
+		for index := 0; index < n; index++ {
+			word[index%NUMBER_OF_BYTES] = data[index]
 			if (index+1)%NUMBER_OF_BYTES == 0 {
+				for j := 0; j < NUMBER_OF_BYTES; j++ {
+					word[NUMBER_OF_BYTES+j] = 0
+				}
+
 				var value int32
+				var valueInInt64 int64
 				buf := bytes.NewReader(word)
 				err := binary.Read(buf, binary.LittleEndian, &value)
 
+				valueInInt64 = int64(value)
 				if err != nil {
 					log.Fatal(err)
 				}
 
-				if value < min {
-					min = value
+				if valueInInt64 < min {
+					min = valueInInt64
 				}
 
-				if value > max {
-					max = value
+				if valueInInt64 > max {
+					max = valueInInt64
 				}
 
-				for i := 0; i < NUMBER_OF_BYTES*2; i++ {
-					word[i] = 0
+				if position == 21 {
+					fmt.Printf("[%d] %d = [%d:%d]\n", (position*segmentSize + index), valueInInt64, min, max)
 				}
 			}
 		}
@@ -113,20 +114,21 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int32, []int32)
 	return minimumValues, maximumValues
 }
 
-func convertToPercentage(minimumValues []int32, maximumValues []int32) []float64 {
+func convertToPercentage(minimumValues []int64, maximumValues []int64) []float64 {
 	width := len(maximumValues)
 	heightsInInt64 := make([]int64, width)
 	heights := make([]float64, width)
-	highestHeight := int64(maximumValues[0]) - int64(minimumValues[0])
+	highestHeight := maximumValues[0] - minimumValues[0]
 	heightsInInt64[0] = 0
 	for i := 1; i < width; i++ {
-		heightsInInt64[i] = int64(maximumValues[i]) - int64(minimumValues[i])
+		heightsInInt64[i] = maximumValues[i] - minimumValues[i]
 		if highestHeight < heightsInInt64[i] {
 			highestHeight = heightsInInt64[i]
 		}
 	}
 
 	highestHeightInFloat64 := float64(highestHeight)
+
 	for i := 0; i < width; i++ {
 		heights[i] = float64(heightsInInt64[i]) / highestHeightInFloat64
 	}
