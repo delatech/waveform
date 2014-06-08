@@ -63,7 +63,6 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int64, []int64)
 	minimumValues := make([]int64, int(width))
 	data := make([]byte, segmentSize*NUMBER_OF_BYTES)
 
-	fmt.Printf("segment size: %d\n", segmentSize)
 	for position := 0; position < int(width); position++ {
 		max := MIN_AUDIO_VALUE
 		min := MAX_AUDIO_VALUE
@@ -100,10 +99,6 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int64, []int64)
 
 				if valueInInt64 > max {
 					max = valueInInt64
-				}
-
-				if position == 21 {
-					fmt.Printf("[%d] %d = [%d:%d]\n", (position*segmentSize + index), valueInInt64, min, max)
 				}
 			}
 		}
