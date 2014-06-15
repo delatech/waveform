@@ -17,7 +17,6 @@ import (
 
 const (
 	PIXEL_PER_SECOND float64 = 1000 / 30.0
-	TEMP_FILE_DIR    string  = "tmp"
 	MAX_AUDIO_VALUE  int64   = 65536
 	MIN_AUDIO_VALUE  int64   = -65536
 	NUMBER_OF_BYTES  int     = 4
@@ -25,7 +24,8 @@ const (
 
 func Generate(sourcePath string, jsonPath string) {
 	filename := filepath.Base(sourcePath)
-	tempfilename := fmt.Sprintf("%s/%s.raw", TEMP_FILE_DIR, filename)
+	currentPath := os.Getenv("GOPATH")
+	tempfilename := fmt.Sprintf("%s/tmp/%s.raw", currentPath, filename)
 	GenerateRawFile(sourcePath, tempfilename)
 
 	rawFile, err := os.Open(tempfilename)
