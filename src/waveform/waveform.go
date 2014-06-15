@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -61,52 +62,78 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int64, []int64)
 	segmentSize := int(float64(rawfileInfo.Size())/width+0.5) / NUMBER_OF_BYTES
 	maximumValues := make([]int64, int(width))
 	minimumValues := make([]int64, int(width))
-	data := make([]byte, segmentSize*NUMBER_OF_BYTES)
+	segmentByteSize := segmentSize * NUMBER_OF_BYTES
+
+	var wg sync.WaitGroup
+	c := make(chan int, int(width))
 
 	for position := 0; position < int(width); position++ {
-		max := MIN_AUDIO_VALUE
-		min := MAX_AUDIO_VALUE
+		wg.Add(1)
+		go func(index int) {
+			min, max := getMinMaxValueWithIndexFromFile(rawFile, index, segmentByteSize)
+			fmt.Println(index, min, max)
+			minimumValues[index] = min
+			maximumValues[index] = max
+			wg.Done()
+		}(position)
+	}
 
-		n, err := rawFile.Read(data)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Fatal(err)
-		}
+	go func() {
+		wg.Wait()
+		close(c)
+	}()
 
-		word := make([]byte, NUMBER_OF_BYTES*2)
-		for index := 0; index < n; index++ {
-			word[index%NUMBER_OF_BYTES] = data[index]
-			if (index+1)%NUMBER_OF_BYTES == 0 {
-				for j := 0; j < NUMBER_OF_BYTES; j++ {
-					word[NUMBER_OF_BYTES+j] = 0
-				}
-
-				var value int32
-				var valueInInt64 int64
-				buf := bytes.NewReader(word)
-				err := binary.Read(buf, binary.LittleEndian, &value)
-
-				valueInInt64 = int64(value)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				if valueInInt64 < min {
-					min = valueInInt64
-				}
-
-				if valueInInt64 > max {
-					max = valueInInt64
-				}
-			}
-		}
-
-		minimumValues[position] = min
-		maximumValues[position] = max
+	for _ = range c {
 	}
 	return minimumValues, maximumValues
+}
+
+func getMinMaxValueWithIndexFromFile(file *os.File, index int, segmentByteSize int) (int64, int64) {
+	data := make([]byte, segmentByteSize)
+	n, err := file.ReadAt(data, int64(index*segmentByteSize))
+	if err != nil {
+		if err == io.EOF {
+			return 0, 0
+		}
+		log.Fatal(err)
+	}
+
+	min, max := getMinMaxValue(data, n)
+	return min, max
+}
+
+func getMinMaxValue(data []byte, dataLength int) (int64, int64) {
+	max := MIN_AUDIO_VALUE
+	min := MAX_AUDIO_VALUE
+
+	word := make([]byte, NUMBER_OF_BYTES*2)
+	for index := 0; index < dataLength; index++ {
+		word[index%NUMBER_OF_BYTES] = data[index]
+		if (index+1)%NUMBER_OF_BYTES == 0 {
+			for j := 0; j < NUMBER_OF_BYTES; j++ {
+				word[NUMBER_OF_BYTES+j] = 0
+			}
+
+			var value int32
+			var valueInInt64 int64
+			buf := bytes.NewReader(word)
+			err := binary.Read(buf, binary.LittleEndian, &value)
+
+			valueInInt64 = int64(value)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if valueInInt64 < min {
+				min = valueInInt64
+			}
+
+			if valueInInt64 > max {
+				max = valueInInt64
+			}
+		}
+	}
+	return min, max
 }
 
 func convertToPercentage(minimumValues []int64, maximumValues []int64) []float64 {
