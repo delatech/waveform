@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"math"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 const (
@@ -50,56 +48,6 @@ func Generate(sourcePath string, jsonPath string) {
 	if _, err := jsonFile.Write(result); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int64, []int64) {
-	rawfileInfo, err := rawFile.Stat()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	width := GetWidth(sourcePath)
-	segmentSize := int(float64(rawfileInfo.Size())/width+0.5) / NUMBER_OF_BYTES
-	maximumValues := make([]int64, int(width))
-	minimumValues := make([]int64, int(width))
-	segmentByteSize := segmentSize * NUMBER_OF_BYTES
-
-	var wg sync.WaitGroup
-	c := make(chan int, int(width))
-
-	for position := 0; position < int(width); position++ {
-		wg.Add(1)
-		go func(index int) {
-			min, max := getMinMaxValueWithIndexFromFile(rawFile, index, segmentByteSize)
-			fmt.Println(index, min, max)
-			minimumValues[index] = min
-			maximumValues[index] = max
-			wg.Done()
-		}(position)
-	}
-
-	go func() {
-		wg.Wait()
-		close(c)
-	}()
-
-	for _ = range c {
-	}
-	return minimumValues, maximumValues
-}
-
-func getMinMaxValueWithIndexFromFile(file *os.File, index int, segmentByteSize int) (int64, int64) {
-	data := make([]byte, segmentByteSize)
-	n, err := file.ReadAt(data, int64(index*segmentByteSize))
-	if err != nil {
-		if err == io.EOF {
-			return 0, 0
-		}
-		log.Fatal(err)
-	}
-
-	min, max := getMinMaxValue(data, n)
-	return min, max
 }
 
 func getMinMaxValue(data []byte, dataLength int) (int64, int64) {
