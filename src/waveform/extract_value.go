@@ -1,6 +1,8 @@
 package waveform
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -10,7 +12,10 @@ import (
 )
 
 const (
-	BUFFER_SIZE = 300
+	BUFFER_SIZE           = 300
+	NUMBER_OF_BYTES       = 4
+	MAX_AUDIO_VALUE int64 = 65536
+	MIN_AUDIO_VALUE int64 = -65536
 )
 
 func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int64, []int64) {
@@ -19,7 +24,7 @@ func extractMinMaxValues(sourcePath string, rawFile *os.File) ([]int64, []int64)
 		log.Fatal(err)
 	}
 
-	widthInFloat := GetWidth(sourcePath)
+	widthInFloat := getWidth(sourcePath)
 	segmentSize := int(float64(rawfileInfo.Size())/widthInFloat+0.5) / NUMBER_OF_BYTES
 	width := int(widthInFloat)
 	maximumValues := make([]int64, width)
@@ -90,4 +95,38 @@ func getMinMaxValuesWithIndexFromFile(file *os.File, startIndex int, lastIndex i
 	}
 
 	return mins, maxs
+}
+
+func getMinMaxValue(data []byte, dataLength int) (int64, int64) {
+	max := MIN_AUDIO_VALUE
+	min := MAX_AUDIO_VALUE
+
+	word := make([]byte, NUMBER_OF_BYTES*2)
+	for index := 0; index < dataLength; index++ {
+		word[index%NUMBER_OF_BYTES] = data[index]
+		if (index+1)%NUMBER_OF_BYTES == 0 {
+			for j := 0; j < NUMBER_OF_BYTES; j++ {
+				word[NUMBER_OF_BYTES+j] = 0
+			}
+
+			var value int32
+			var valueInInt64 int64
+			buf := bytes.NewReader(word)
+			err := binary.Read(buf, binary.LittleEndian, &value)
+
+			valueInInt64 = int64(value)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if valueInInt64 < min {
+				min = valueInInt64
+			}
+
+			if valueInInt64 > max {
+				max = valueInInt64
+			}
+		}
+	}
+	return min, max
 }

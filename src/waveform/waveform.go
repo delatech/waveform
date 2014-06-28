@@ -1,31 +1,18 @@
 package waveform
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
-	"strings"
-)
-
-const (
-	PIXEL_PER_SECOND float64 = 1000 / 30.0
-	MAX_AUDIO_VALUE  int64   = 65536
-	MIN_AUDIO_VALUE  int64   = -65536
-	NUMBER_OF_BYTES  int     = 4
 )
 
 func Generate(sourcePath string, jsonPath string) {
 	filename := filepath.Base(sourcePath)
 	currentPath := os.Getenv("GOPATH")
 	tempfilename := fmt.Sprintf("%s/tmp/%s.raw", currentPath, filename)
-	GenerateRawFile(sourcePath, tempfilename)
+	generateRawFile(sourcePath, tempfilename)
 
 	rawFile, err := os.Open(tempfilename)
 	if err != nil {
@@ -50,40 +37,6 @@ func Generate(sourcePath string, jsonPath string) {
 	}
 }
 
-func getMinMaxValue(data []byte, dataLength int) (int64, int64) {
-	max := MIN_AUDIO_VALUE
-	min := MAX_AUDIO_VALUE
-
-	word := make([]byte, NUMBER_OF_BYTES*2)
-	for index := 0; index < dataLength; index++ {
-		word[index%NUMBER_OF_BYTES] = data[index]
-		if (index+1)%NUMBER_OF_BYTES == 0 {
-			for j := 0; j < NUMBER_OF_BYTES; j++ {
-				word[NUMBER_OF_BYTES+j] = 0
-			}
-
-			var value int32
-			var valueInInt64 int64
-			buf := bytes.NewReader(word)
-			err := binary.Read(buf, binary.LittleEndian, &value)
-
-			valueInInt64 = int64(value)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if valueInInt64 < min {
-				min = valueInInt64
-			}
-
-			if valueInInt64 > max {
-				max = valueInInt64
-			}
-		}
-	}
-	return min, max
-}
-
 func convertToPercentage(minimumValues []int64, maximumValues []int64) []float64 {
 	width := len(maximumValues)
 	heightsInInt64 := make([]int64, width)
@@ -103,33 +56,4 @@ func convertToPercentage(minimumValues []int64, maximumValues []int64) []float64
 		heights[i] = float64(heightsInInt64[i]) / highestHeightInFloat64
 	}
 	return heights
-}
-
-func GenerateRawFile(sourcePath string, tempFilePath string) {
-	cmd := exec.Command("sox", sourcePath, "-t", "raw", "-r", "44100", "-c", "1", "-e", "signed-integer", "-L", tempFilePath)
-	_, err := cmd.Output()
-
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-}
-
-func GetWidth(sourcePath string) float64 {
-	return math.Ceil((GetDuration(sourcePath) * 1000) / PIXEL_PER_SECOND)
-}
-
-func GetDuration(sourcePath string) float64 {
-	cmd := exec.Command("soxi", "-D", sourcePath)
-
-	output, err := cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	result, err := strconv.ParseFloat(strings.TrimSpace(string(output[0:])), 64)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return result
 }
