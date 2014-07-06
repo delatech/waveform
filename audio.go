@@ -1,6 +1,7 @@
 package waveform
 
 import (
+	"bytes"
 	"log"
 	"math"
 	"os"
@@ -20,10 +21,12 @@ func generateRawFile(sourcePath string, tempFilePath string) {
 	}
 
 	cmd := exec.Command("sox", sourcePath, "-t", "raw", "-r", "44100", "-c", "1", "-e", "signed-integer", "-L", tempFilePath)
-	_, err := cmd.Output()
+	var error bytes.Buffer
+	cmd.Stderr = &error
+	err := cmd.Run()
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error(), "\n", error.String())
 		return
 	}
 }
