@@ -1,5 +1,6 @@
 ### WaveToJSON
 Generate waveform data in json format from mp3 file
+[![Build Status](https://travis-ci.org/styner32/go-wave-to-json.svg?branch=master)](https://travis-ci.org/styner32/go-wave-to-json)
 
 ### Installation
 
