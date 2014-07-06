@@ -2,8 +2,10 @@ package waveform
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
+	"os"
 	"testing"
 )
 
@@ -11,9 +13,14 @@ func TestGenerate(t *testing.T) {
 	var expected []float64
 	var result []float64
 
-	expactedJsonPath := "test/fixtures/expected.json"
-	resultJsonPath := "test/generated/result.json"
-	sourceFilePath := "test/fixtures/source.mp3"
+	currentPath, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to read current path", err)
+	}
+
+	expactedJsonPath := fmt.Sprintf("%s/test/fixtures/expected.json", currentPath)
+	resultJsonPath := fmt.Sprintf("%s/test/generated/result.json", currentPath)
+	sourceFilePath := fmt.Sprintf("%s/test/fixtures/source.mp3", currentPath)
 
 	expectedBytes, err := ioutil.ReadFile(expactedJsonPath)
 	if err != nil {

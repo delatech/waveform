@@ -14,9 +14,18 @@ func Generate(sourcePath string, jsonPath string) {
 		log.Fatal(err)
 	}
 
+	sourceFilename, err := filepath.Abs(sourcePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	filename := filepath.Base(sourcePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	tempfilename := fmt.Sprintf("%s/tmp/%s.raw", currentPath, filename)
-	generateRawFile(sourcePath, tempfilename)
+	generateRawFile(sourceFilename, tempfilename)
 
 	rawFile, err := os.Open(tempfilename)
 	if err != nil {

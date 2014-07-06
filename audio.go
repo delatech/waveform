@@ -3,6 +3,7 @@ package waveform
 import (
 	"log"
 	"math"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -13,6 +14,11 @@ const (
 )
 
 func generateRawFile(sourcePath string, tempFilePath string) {
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		log.Fatalf("Source file does not exists: %s", sourcePath)
+		return
+	}
+
 	cmd := exec.Command("sox", sourcePath, "-t", "raw", "-r", "44100", "-c", "1", "-e", "signed-integer", "-L", tempFilePath)
 	_, err := cmd.Output()
 
