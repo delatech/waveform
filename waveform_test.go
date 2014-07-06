@@ -2,10 +2,8 @@ package waveform
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"math"
-	"os"
 	"testing"
 )
 
@@ -13,10 +11,9 @@ func TestGenerate(t *testing.T) {
 	var expected []float64
 	var result []float64
 
-	rootPath := os.Getenv("GOPATH")
-	expactedJsonPath := fmt.Sprintf("%s/test/fixtures/expected.json", rootPath)
-	resultJsonPath := fmt.Sprintf("%s/test/generated/result.json", rootPath)
-	sourceFilePath := fmt.Sprintf("%s/test/fixtures/source.mp3", rootPath)
+	expactedJsonPath := "test/fixtures/expected.json"
+	resultJsonPath := "test/generated/result.json"
+	sourceFilePath := "test/fixtures/source.mp3"
 
 	expectedBytes, err := ioutil.ReadFile(expactedJsonPath)
 	if err != nil {

@@ -9,8 +9,12 @@ import (
 )
 
 func Generate(sourcePath string, jsonPath string) {
+	currentPath, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	filename := filepath.Base(sourcePath)
-	currentPath := os.Getenv("GOPATH")
 	tempfilename := fmt.Sprintf("%s/tmp/%s.raw", currentPath, filename)
 	generateRawFile(sourcePath, tempfilename)
 
