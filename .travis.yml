@@ -2,4 +2,5 @@ language: go
 before_install:
   - sudo apt-get install sox libsox-fmt-mp3
   - mkdir $TRAVIS_BUILD_DIR/tmp
+  - mkdir $TRAVIS_BUILD_DIR/test/generated
 script: go test
