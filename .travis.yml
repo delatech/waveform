@@ -1,6 +1,7 @@
 language: go
 before_install:
-  - export WORK_DIR=`pwd`
-  - export GOPATH=$WORK_DIR
   - sudo apt-get install sox libsox-fmt-mp3
+  - export WORK_DIR=`pwd`
+  - export GOROOT=$GOPATH
+  - export GOPATH=$WORK_DIR
 script: go test
